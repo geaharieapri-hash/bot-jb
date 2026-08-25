@@ -21,6 +21,61 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Login Screen Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="fa-solid fa-location-crosshairs pulse-icon"></i>
+                    <span>GeoPulse<span class="highlight">TRACKER</span></span>
+                </div>
+                <h2>Selamat Datang</h2>
+                <p>Silakan masuk untuk mengakses sistem live tracking lokasi</p>
+            </div>
+
+            <form id="login-form" class="login-form">
+                <div class="input-group">
+                    <label for="input-email"><i class="fa-solid fa-envelope"></i> Email / Username</label>
+                    <input type="text" id="input-email" placeholder="Masukkan username atau email" required autocomplete="username">
+                </div>
+
+                <div class="input-group">
+                    <label for="input-password"><i class="fa-solid fa-lock"></i> Kata Sandi</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="input-password" placeholder="Masukkan kata sandi" required autocomplete="current-password">
+                        <i class="fa-solid fa-eye toggle-pass-icon" id="btn-toggle-pass"></i>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="remember-me" checked>
+                        <span class="checkmark"></span>
+                        Ingat Saya
+                    </label>
+                    <a href="#" class="forgot-link" onclick="alert('Demo: Silakan langsung klik Masuk'); return false;">Lupa Sandi?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa-solid fa-right-to-bracket"></i> Masuk ke Dashboard
+                </button>
+
+                <div class="divider">
+                    <span>atau</span>
+                </div>
+
+                <button type="button" id="btn-guest-login" class="btn btn-secondary btn-block">
+                    <i class="fa-solid fa-user-clock"></i> Masuk sebagai Tamu / Guest
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p>GeoPulse &copy; 2026 • Secure Access Portal</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
     <div class="app-container">
         <!-- Sidebar / Details Panel -->
         <aside class="sidebar">
@@ -170,6 +225,7 @@
     </div>
 
     <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <!-- Socket.io CDN JS -->

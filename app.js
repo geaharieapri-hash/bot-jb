@@ -12,6 +12,13 @@ let currentAddressData = null;
 let isDarkLayer = true;
 let tileLayer = null;
 
+// Login Overlay Elements
+const loginOverlay = document.getElementById('login-overlay');
+const loginForm = document.getElementById('login-form');
+const btnGuestLogin = document.getElementById('btn-guest-login');
+const btnTogglePass = document.getElementById('btn-toggle-pass');
+const inputPassword = document.getElementById('input-password');
+
 // Socket.io Connection Safeguard
 let socket = null;
 try {
@@ -57,6 +64,7 @@ const toastMessage = document.getElementById('toast-message');
 
 // Initialize Leaflet Map
 function initMap(lat = -6.2088, lng = 106.8456, zoom = 15) {
+    if (map) return;
     map = L.map('map', {
         center: [lat, lng],
         zoom: zoom,
@@ -100,7 +108,6 @@ if (socket) {
             valSocketStatus.textContent = "Terhubung ke Server";
             valSocketStatus.className = "detail-val accent";
         }
-        showToast("Terhubung ke Server Tracker");
     });
 
     socket.on('disconnect', () => {
@@ -343,7 +350,6 @@ function toggleLiveTracking() {
             btnLiveTrack.classList.add('tracking-active');
             btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite-dish fa-spin"></i> Broadcast GPS: ON`;
         }
-        showToast("Broadcast Real-time GPS Aktif");
 
         watchId = navigator.geolocation.watchPosition(
             onLocationSuccess,
@@ -353,7 +359,67 @@ function toggleLiveTracking() {
     }
 }
 
-// Copy Location Info to Clipboard
+// Enter Main Application Dashboard (Dismiss Login)
+function enterDashboard(userEmail = 'Guest') {
+    if (loginOverlay) {
+        loginOverlay.classList.add('hidden');
+    }
+    showToast(`Selamat Datang, ${userEmail}!`);
+
+    // Initialize Map & Start Geolocation
+    initMap();
+    fetchAccurateLocation();
+    toggleLiveTracking();
+}
+
+// Event Listeners Initialization
+document.addEventListener('DOMContentLoaded', () => {
+    // Check existing login session
+    const savedUser = localStorage.getItem('geopulse_user');
+    if (savedUser) {
+        enterDashboard(savedUser);
+    }
+
+    // Login Form Submission
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById('input-email');
+            const userVal = emailInput ? emailInput.value : 'User';
+            
+            if (document.getElementById('remember-me')?.checked) {
+                localStorage.setItem('geopulse_user', userVal);
+            }
+
+            enterDashboard(userVal);
+        });
+    }
+
+    // Guest Login Button
+    if (btnGuestLogin) {
+        btnGuestLogin.addEventListener('click', () => {
+            enterDashboard('Pengunjung');
+        });
+    }
+
+    // Toggle Password Visibility
+    if (btnTogglePass && inputPassword) {
+        btnTogglePass.addEventListener('click', () => {
+            const isPass = inputPassword.type === 'password';
+            inputPassword.type = isPass ? 'text' : 'password';
+            btnTogglePass.className = `fa-solid ${isPass ? 'fa-eye-slash' : 'fa-eye'} toggle-pass-icon`;
+        });
+    }
+
+    // Dashboard Controls
+    if (btnRecenter) btnRecenter.addEventListener('click', fetchAccurateLocation);
+    if (btnLiveTrack) btnLiveTrack.addEventListener('click', toggleLiveTracking);
+    if (btnCopy) btnCopy.addEventListener('click', copyLocationData);
+    if (btnGmaps) btnGmaps.addEventListener('click', openGoogleMaps);
+    if (btnShare) btnShare.addEventListener('click', shareLocation);
+    if (toggleLayerBtn) toggleLayerBtn.addEventListener('click', toggleMapLayer);
+});
+
 function copyLocationData() {
     if (!currentCoords) {
         showToast("Lokasi belum terdeteksi", true);
@@ -374,7 +440,6 @@ function copyLocationData() {
     });
 }
 
-// Open Google Maps
 function openGoogleMaps() {
     if (!currentCoords) {
         showToast("Lokasi belum terdeteksi", true);
@@ -384,7 +449,6 @@ function openGoogleMaps() {
     window.open(url, '_blank');
 }
 
-// Share Web Link
 function shareLocation() {
     const shareData = {
         title: 'GeoPulse Multi-User GPS Tracker',
@@ -400,7 +464,6 @@ function shareLocation() {
     }
 }
 
-// Toggle Map Layer
 function toggleMapLayer() {
     if (!map || !tileLayer) return;
 
@@ -415,7 +478,6 @@ function toggleMapLayer() {
     showToast(`Mode Peta: ${isDarkLayer ? 'Dark Mode' : 'Light Mode'}`);
 }
 
-// Toast Helper
 function showToast(message, isError = false) {
     if (!toast || !toastMessage) return;
     toastMessage.textContent = message;
@@ -433,19 +495,3 @@ function showToast(message, isError = false) {
         toast.classList.add('hidden');
     }, 3500);
 }
-
-// Event Listeners Initialization
-document.addEventListener('DOMContentLoaded', () => {
-    initMap();
-    fetchAccurateLocation();
-
-    // Start auto live tracking watch by default
-    toggleLiveTracking();
-
-    if (btnRecenter) btnRecenter.addEventListener('click', fetchAccurateLocation);
-    if (btnLiveTrack) btnLiveTrack.addEventListener('click', toggleLiveTracking);
-    if (btnCopy) btnCopy.addEventListener('click', copyLocationData);
-    if (btnGmaps) btnGmaps.addEventListener('click', openGoogleMaps);
-    if (btnShare) btnShare.addEventListener('click', shareLocation);
-    if (toggleLayerBtn) toggleLayerBtn.addEventListener('click', toggleMapLayer);
-});
