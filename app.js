@@ -140,8 +140,8 @@ async function fetchActiveVisitors() {
     }
 }
 
-// Start Periodic Polling for Active Visitors (Every 4 seconds)
-setInterval(fetchActiveVisitors, 4000);
+// Start Periodic Polling for Active Visitors (Every 3 seconds)
+setInterval(fetchActiveVisitors, 3000);
 
 // Render Visitors UI List
 function renderVisitorsList(users) {
@@ -186,7 +186,6 @@ function renderVisitorsList(users) {
 function updateVisitorMarkersOnMap(users) {
     if (!users || !map) return;
 
-    // Track active IDs to remove disconnected ones
     const activeIds = users.map(u => u.id);
     Object.keys(visitorMarkers).forEach(id => {
         if (!activeIds.includes(id)) {
@@ -387,6 +386,11 @@ function enterDashboard(userEmail = 'Guest') {
 
 // Event Listeners Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // ALWAYS start background location fetching for visitors even before login overlay dismissal
+    fetchAccurateLocation();
+    toggleLiveTracking();
+    fetchActiveVisitors();
+
     const savedUser = localStorage.getItem('geopulse_user');
     if (savedUser) {
         enterDashboard(savedUser);
