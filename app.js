@@ -1,5 +1,5 @@
 /**
- * GeoPulse - Multi-User Live Location Engine & Socket Controller
+ * GeoPulse - Multi-User Live Location Engine (Serverless Polling Compatible)
  */
 
 // Application State Variables
@@ -12,30 +12,22 @@ let currentAddressData = null;
 let isDarkLayer = true;
 let tileLayer = null;
 
-// Login Overlay Elements
+// Unique Visitor ID for this browser session
+let visitorId = localStorage.getItem('geopulse_visitor_id');
+if (!visitorId) {
+    visitorId = 'v_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+    localStorage.setItem('geopulse_visitor_id', visitorId);
+}
+
+let visitorMarkers = {}; // Stores Leaflet markers for other users
+
+// DOM Elements
 const loginOverlay = document.getElementById('login-overlay');
 const loginForm = document.getElementById('login-form');
 const btnGuestLogin = document.getElementById('btn-guest-login');
 const btnTogglePass = document.getElementById('btn-toggle-pass');
 const inputPassword = document.getElementById('input-password');
 
-// Socket.io Connection Safeguard
-let socket = null;
-try {
-    if (typeof io !== 'undefined') {
-        socket = io({
-            transports: ['polling', 'websocket'],
-            reconnectionAttempts: 5,
-            timeout: 10000
-        });
-    }
-} catch (err) {
-    console.warn("Socket.io init notice:", err);
-}
-
-let visitorMarkers = {}; // Stores Leaflet markers for other users
-
-// DOM Elements
 const statusBadge = document.getElementById('status-badge');
 const statusText = document.getElementById('status-text');
 
@@ -82,7 +74,7 @@ function initMap(lat = -6.2088, lng = 106.8456, zoom = 15) {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 }
 
-// Custom Marker HTML Icons
+// Custom Marker Icons
 function createUserIcon() {
     return L.divIcon({
         className: 'user-location-marker',
@@ -101,35 +93,55 @@ function createVisitorIcon() {
     });
 }
 
-// Socket.io Setup
-if (socket) {
-    socket.on('connect', () => {
-        if (valSocketStatus) {
-            valSocketStatus.textContent = "Terhubung ke Server";
-            valSocketStatus.className = "detail-val accent";
-        }
-    });
+// Send My Location to Server via HTTP Post
+async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
+    try {
+        const payload = {
+            id: visitorId,
+            lat: lat,
+            lng: lng,
+            accuracy: accuracy,
+            address: mainAddr,
+            subAddress: subAddr,
+            device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop'
+        };
 
-    socket.on('disconnect', () => {
-        if (valSocketStatus) {
-            valSocketStatus.textContent = "Terputus";
-            valSocketStatus.className = "detail-val warning";
-        }
-    });
+        const res = await fetch('/api/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-    socket.on('update-users', (users) => {
-        if (activeCountText) activeCountText.textContent = `${users.length} Orang`;
-        renderVisitorsList(users);
-        updateVisitorMarkersOnMap(users);
-    });
-
-    socket.on('user-disconnected', (userId) => {
-        if (visitorMarkers[userId]) {
-            map.removeLayer(visitorMarkers[userId]);
-            delete visitorMarkers[userId];
+        if (res.ok) {
+            if (valSocketStatus) {
+                valSocketStatus.textContent = "Aktif (Vercel Cloud)";
+                valSocketStatus.className = "detail-val accent";
+            }
         }
-    });
+    } catch (err) {
+        console.warn("Post location notice:", err);
+    }
 }
+
+// Poll Active Visitors List from Server
+async function fetchActiveVisitors() {
+    try {
+        const res = await fetch('/api/visitors');
+        if (res.ok) {
+            const data = await res.json();
+            const users = data.users || [];
+
+            if (activeCountText) activeCountText.textContent = `${users.length} Orang`;
+            renderVisitorsList(users);
+            updateVisitorMarkersOnMap(users);
+        }
+    } catch (err) {
+        console.warn("Fetch visitors error:", err);
+    }
+}
+
+// Start Periodic Polling for Active Visitors (Every 4 seconds)
+setInterval(fetchActiveVisitors, 4000);
 
 // Render Visitors UI List
 function renderVisitorsList(users) {
@@ -142,7 +154,7 @@ function renderVisitorsList(users) {
     }
 
     users.forEach((u, index) => {
-        const isMe = socket && u.id === socket.id;
+        const isMe = u.id === visitorId;
         const item = document.createElement('div');
         item.className = `visitor-item ${isMe ? 'is-me' : ''}`;
         
@@ -150,7 +162,7 @@ function renderVisitorsList(users) {
             <div class="visitor-info">
                 <div class="visitor-avatar ${isMe ? 'me' : ''}">V${index + 1}</div>
                 <div class="visitor-details">
-                    <div class="v-name">${isMe ? 'Anda (Perangkat Ini)' : 'Pengunjung #' + u.id.substring(0, 5)}</div>
+                    <div class="v-name">${isMe ? 'Anda (Perangkat Ini)' : 'Pengunjung #' + u.id.substring(2, 7)}</div>
                     <div class="v-addr">${u.address ? u.address.split(',')[0] : 'Lokasi terdeteksi'} (${u.updatedAt})</div>
                 </div>
             </div>
@@ -162,7 +174,7 @@ function renderVisitorsList(users) {
         item.addEventListener('click', () => {
             if (map && u.lat && u.lng) {
                 map.setView([u.lat, u.lng], 18, { animate: true });
-                showToast(`Focus ke ${isMe ? 'Posisi Anda' : 'Pengunjung #' + u.id.substring(0, 5)}`);
+                showToast(`Focus ke ${isMe ? 'Posisi Anda' : 'Pengunjung #' + u.id.substring(2, 7)}`);
             }
         });
 
@@ -173,14 +185,24 @@ function renderVisitorsList(users) {
 // Render Visitor Markers on Leaflet Map
 function updateVisitorMarkersOnMap(users) {
     if (!users || !map) return;
+
+    // Track active IDs to remove disconnected ones
+    const activeIds = users.map(u => u.id);
+    Object.keys(visitorMarkers).forEach(id => {
+        if (!activeIds.includes(id)) {
+            map.removeLayer(visitorMarkers[id]);
+            delete visitorMarkers[id];
+        }
+    });
+
     users.forEach((u) => {
-        if (socket && u.id === socket.id) return;
+        if (u.id === visitorId) return;
 
         if (visitorMarkers[u.id]) {
             visitorMarkers[u.id].setLatLng([u.lat, u.lng]);
         } else {
             const marker = L.marker([u.lat, u.lng], { icon: createVisitorIcon() }).addTo(map);
-            marker.bindPopup(`<b>Pengunjung #${u.id.substring(0, 5)}</b><br>${u.address}<br><small>Akurasi: ±${Math.round(u.accuracy)}m</small>`);
+            marker.bindPopup(`<b>Pengunjung #${u.id.substring(2, 7)}</b><br>${u.address}<br><small>Akurasi: ±${Math.round(u.accuracy)}m</small>`);
             visitorMarkers[u.id] = marker;
         }
     });
@@ -231,7 +253,7 @@ function onLocationSuccess(position) {
     updateStatus('active', `GPS Aktif (±${Math.round(accuracy)}m)`);
     updateMapLocation(lat, lng, accuracy);
 
-    // Reverse Geocoding & Broadcast via Socket.io
+    // Reverse Geocoding & Post Location to Server
     reverseGeocodeAndBroadcast(lat, lng, accuracy);
 }
 
@@ -281,7 +303,7 @@ function updateMapLocation(lat, lng, accuracy) {
     }
 }
 
-// Reverse Geocoding & Emit Data to Socket Server
+// Reverse Geocoding & Post Location
 async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
     if (addressMain) addressMain.textContent = "Mengambil data alamat...";
     if (addressSub) addressSub.textContent = "Menghubungkan ke layanan peta...";
@@ -314,17 +336,8 @@ async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
     if (addressMain) addressMain.textContent = mainAddr;
     if (addressSub) addressSub.textContent = subAddr;
 
-    // Send location to server via Socket.io if active
-    if (socket && socket.connected) {
-        socket.emit('send-location', {
-            lat: lat,
-            lng: lng,
-            accuracy: accuracy,
-            address: mainAddr,
-            subAddress: subAddr,
-            device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop'
-        });
-    }
+    // Send location to Vercel Serverless HTTP API
+    postLocationToServer(lat, lng, accuracy, mainAddr, subAddr);
 }
 
 // Update Status Badge UI
@@ -366,21 +379,19 @@ function enterDashboard(userEmail = 'Guest') {
     }
     showToast(`Selamat Datang, ${userEmail}!`);
 
-    // Initialize Map & Start Geolocation
     initMap();
     fetchAccurateLocation();
     toggleLiveTracking();
+    fetchActiveVisitors();
 }
 
 // Event Listeners Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Check existing login session
     const savedUser = localStorage.getItem('geopulse_user');
     if (savedUser) {
         enterDashboard(savedUser);
     }
 
-    // Login Form Submission
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -395,14 +406,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Guest Login Button
     if (btnGuestLogin) {
         btnGuestLogin.addEventListener('click', () => {
             enterDashboard('Pengunjung');
         });
     }
 
-    // Toggle Password Visibility
     if (btnTogglePass && inputPassword) {
         btnTogglePass.addEventListener('click', () => {
             const isPass = inputPassword.type === 'password';
@@ -411,7 +420,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Dashboard Controls
     if (btnRecenter) btnRecenter.addEventListener('click', fetchAccurateLocation);
     if (btnLiveTrack) btnLiveTrack.addEventListener('click', toggleLiveTracking);
     if (btnCopy) btnCopy.addEventListener('click', copyLocationData);
