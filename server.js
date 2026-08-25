@@ -13,7 +13,16 @@ const io = new Server(server, {
 });
 
 // Serve Static Files
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(__dirname));
+
+// Explicit Routes for Static Assets on Vercel
+app.get('/style.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'style.css'));
+});
+
+app.get('/app.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'app.js'));
+});
 
 // Explicit Root Route for Vercel
 app.get('/', (req, res) => {
