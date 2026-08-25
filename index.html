@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoPulse - Live Multi-User Location Tracker</title>
+    <meta name="description" content="Aplikasi web pendeteksi lokasi akurat & live multi-user tracking real-time.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- App Styling -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Details Panel -->
+        <aside class="sidebar">
+            <header class="brand-header">
+                <div class="logo">
+                    <i class="fa-solid fa-location-crosshairs pulse-icon"></i>
+                    <span>GeoPulse<span class="highlight">TRACKER</span></span>
+                </div>
+                <div id="status-badge" class="status-badge standby">
+                    <span class="dot"></span>
+                    <span id="status-text">Memuat GPS...</span>
+                </div>
+            </header>
+
+            <div class="scroll-content">
+                <!-- Active Users Summary Header -->
+                <section class="card active-summary-card">
+                    <div class="summary-box">
+                        <div class="summary-info">
+                            <span class="summary-label">Pengunjung Aktif Terlacak</span>
+                            <h2 id="active-count-text">1 Orang</h2>
+                        </div>
+                        <div class="summary-badge">
+                            <i class="fa-solid fa-users"></i> LIVE
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Location Quick Card (My Location) -->
+                <section class="card address-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-user-gear icon"></i>
+                        <h3>Lokasi Anda (Perangkat Ini)</h3>
+                    </div>
+                    <div class="address-box">
+                        <p id="address-main" class="address-main">Mendeteksi posisi Anda...</p>
+                        <p id="address-sub" class="address-sub">Mohon izinkan akses lokasi pada browser</p>
+                    </div>
+                </section>
+
+                <!-- Metrics Grid -->
+                <section class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="label"><i class="fa-solid fa-arrows-up-down"></i> Latitude</span>
+                        <span id="val-lat" class="value mono">--.------</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label"><i class="fa-solid fa-arrows-left-right"></i> Longitude</span>
+                        <span id="val-lng" class="value mono">--.------</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label"><i class="fa-solid fa-bullseye"></i> Akurasi</span>
+                        <span id="val-accuracy" class="value">± - m</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label"><i class="fa-solid fa-mountain"></i> Ketinggian</span>
+                        <span id="val-altitude" class="value">- m</span>
+                    </div>
+                </section>
+
+                <!-- Active Visitors List Card -->
+                <section class="card visitors-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-radar icon"></i>
+                        <h3>Daftar Visitor Terkoneksi</h3>
+                    </div>
+                    <div id="visitors-list" class="visitors-list">
+                        <!-- Dynamic Visitor Items inserted via JS -->
+                        <div class="empty-visitor">Menunggu pengunjung lain terhubung...</div>
+                    </div>
+                </section>
+
+                <!-- Additional Information Details -->
+                <section class="card details-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-circle-info icon"></i>
+                        <h3>Detail Sensor & Jaringan</h3>
+                    </div>
+                    <ul class="details-list">
+                        <li>
+                            <span class="detail-label">Kecepatan Gerak</span>
+                            <span id="val-speed" class="detail-val">0 km/j</span>
+                        </li>
+                        <li>
+                            <span class="detail-label">Arah (Heading)</span>
+                            <span id="val-heading" class="detail-val">N/A</span>
+                        </li>
+                        <li>
+                            <span class="detail-label">Waktu Pembaruan</span>
+                            <span id="val-time" class="detail-val">--:--:--</span>
+                        </li>
+                        <li>
+                            <span class="detail-label">Status Server</span>
+                            <span id="val-socket-status" class="detail-val accent">Terhubung</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <!-- Quick Action Buttons -->
+                <section class="actions-section">
+                    <button id="btn-recenter" class="btn btn-primary">
+                        <i class="fa-solid fa-crosshairs"></i> Posisi Saya
+                    </button>
+                    <button id="btn-live-track" class="btn btn-secondary">
+                        <i class="fa-solid fa-satellite"></i> Broadcast GPS: ON
+                    </button>
+                    <div class="btn-group">
+                        <button id="btn-copy" class="btn btn-outline">
+                            <i class="fa-solid fa-copy"></i> Salin Data
+                        </button>
+                        <button id="btn-gmaps" class="btn btn-outline">
+                            <i class="fa-solid fa-map"></i> Google Maps
+                        </button>
+                        <button id="btn-share" class="btn btn-outline">
+                            <i class="fa-solid fa-share-nodes"></i> Bagikan Web
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Footer -->
+            <footer class="sidebar-footer">
+                <p>GeoPulse &copy; 2026 • Multi-User Live Tracking System</p>
+            </footer>
+        </aside>
+
+        <!-- Main Map Container -->
+        <main class="map-wrapper">
+            <div id="map"></div>
+            
+            <!-- Map Overlay Controls -->
+            <div class="map-controls">
+                <button id="toggle-layer-btn" class="map-btn" title="Ganti Mode Peta">
+                    <i class="fa-solid fa-layer-group"></i>
+                </button>
+                <div class="accuracy-indicator" id="accuracy-pill">
+                    <i class="fa-solid fa-satellite-dish pulse-icon"></i> Live Multi-Tracking Server Active
+                </div>
+            </div>
+            
+            <!-- Notification Toast -->
+            <div id="toast" class="toast hidden">
+                <i class="fa-solid fa-circle-check toast-icon"></i>
+                <span id="toast-message">Data berhasil disalin!</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Socket.io Client JS -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Main Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
