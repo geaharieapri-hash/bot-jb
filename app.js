@@ -12,8 +12,20 @@ let currentAddressData = null;
 let isDarkLayer = true;
 let tileLayer = null;
 
-// Socket.io Connection
-const socket = io();
+// Socket.io Connection Safeguard
+let socket = null;
+try {
+    if (typeof io !== 'undefined') {
+        socket = io({
+            transports: ['polling', 'websocket'],
+            reconnectionAttempts: 5,
+            timeout: 10000
+        });
+    }
+} catch (err) {
+    console.warn("Socket.io init notice:", err);
+}
+
 let visitorMarkers = {}; // Stores Leaflet markers for other users
 
 // DOM Elements
@@ -81,48 +93,49 @@ function createVisitorIcon() {
     });
 }
 
-// Socket.io Real-Time Listeners
-socket.on('connect', () => {
-    valSocketStatus.textContent = "Terhubung ke Server";
-    valSocketStatus.className = "detail-val accent";
-    showToast("Terhubung ke Server Tracker Multi-User");
-});
+// Socket.io Setup
+if (socket) {
+    socket.on('connect', () => {
+        if (valSocketStatus) {
+            valSocketStatus.textContent = "Terhubung ke Server";
+            valSocketStatus.className = "detail-val accent";
+        }
+        showToast("Terhubung ke Server Tracker");
+    });
 
-socket.on('disconnect', () => {
-    valSocketStatus.textContent = "Terputus";
-    valSocketStatus.className = "detail-val warning";
-});
+    socket.on('disconnect', () => {
+        if (valSocketStatus) {
+            valSocketStatus.textContent = "Terputus";
+            valSocketStatus.className = "detail-val warning";
+        }
+    });
 
-// Receive updated visitors list from Server
-socket.on('update-users', (users) => {
-    activeCountText.textContent = `${users.length} Orang`;
+    socket.on('update-users', (users) => {
+        if (activeCountText) activeCountText.textContent = `${users.length} Orang`;
+        renderVisitorsList(users);
+        updateVisitorMarkersOnMap(users);
+    });
 
-    // Render Visitors List Sidebar
-    renderVisitorsList(users);
-
-    // Render Markers on Leaflet Map
-    updateVisitorMarkersOnMap(users);
-});
-
-// Remove disconnected user marker
-socket.on('user-disconnected', (userId) => {
-    if (visitorMarkers[userId]) {
-        map.removeLayer(visitorMarkers[userId]);
-        delete visitorMarkers[userId];
-    }
-});
+    socket.on('user-disconnected', (userId) => {
+        if (visitorMarkers[userId]) {
+            map.removeLayer(visitorMarkers[userId]);
+            delete visitorMarkers[userId];
+        }
+    });
+}
 
 // Render Visitors UI List
 function renderVisitorsList(users) {
+    if (!visitorsList) return;
     visitorsList.innerHTML = '';
 
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
         visitorsList.innerHTML = '<div class="empty-visitor">Belum ada pengunjung terhubung...</div>';
         return;
     }
 
     users.forEach((u, index) => {
-        const isMe = u.id === socket.id;
+        const isMe = socket && u.id === socket.id;
         const item = document.createElement('div');
         item.className = `visitor-item ${isMe ? 'is-me' : ''}`;
         
@@ -152,8 +165,9 @@ function renderVisitorsList(users) {
 
 // Render Visitor Markers on Leaflet Map
 function updateVisitorMarkersOnMap(users) {
+    if (!users || !map) return;
     users.forEach((u) => {
-        if (u.id === socket.id) return; // Skip drawing visitor marker for self (handled by userMarker)
+        if (socket && u.id === socket.id) return;
 
         if (visitorMarkers[u.id]) {
             visitorMarkers[u.id].setLatLng([u.lat, u.lng]);
@@ -197,15 +211,15 @@ function onLocationSuccess(position) {
     const lng = coords.longitude;
     const accuracy = coords.accuracy;
 
-    valLat.textContent = lat.toFixed(6);
-    valLng.textContent = lng.toFixed(6);
-    valAccuracy.textContent = `± ${Math.round(accuracy)} m`;
-    valAltitude.textContent = coords.altitude ? `${Math.round(coords.altitude)} m` : 'N/A';
-    valSpeed.textContent = coords.speed ? `${(coords.speed * 3.6).toFixed(1)} km/j` : '0 km/j';
-    valHeading.textContent = coords.heading ? `${Math.round(coords.heading)}°` : 'N/A';
+    if (valLat) valLat.textContent = lat.toFixed(6);
+    if (valLng) valLng.textContent = lng.toFixed(6);
+    if (valAccuracy) valAccuracy.textContent = `± ${Math.round(accuracy)} m`;
+    if (valAltitude) valAltitude.textContent = coords.altitude ? `${Math.round(coords.altitude)} m` : 'N/A';
+    if (valSpeed) valSpeed.textContent = coords.speed ? `${(coords.speed * 3.6).toFixed(1)} km/j` : '0 km/j';
+    if (valHeading) valHeading.textContent = coords.heading ? `${Math.round(coords.heading)}°` : 'N/A';
     
     const now = new Date();
-    valTime.textContent = now.toLocaleTimeString('id-ID');
+    if (valTime) valTime.textContent = now.toLocaleTimeString('id-ID');
 
     updateStatus('active', `GPS Aktif (±${Math.round(accuracy)}m)`);
     updateMapLocation(lat, lng, accuracy);
@@ -220,8 +234,8 @@ function onLocationError(error) {
     switch (error.code) {
         case error.PERMISSION_DENIED:
             msg = 'Izin akses lokasi ditolak oleh pengguna.';
-            addressMain.textContent = 'Akses Lokasi Ditolak';
-            addressSub.textContent = 'Aktifkan izin lokasi di pengaturan browser Anda.';
+            if (addressMain) addressMain.textContent = 'Akses Lokasi Ditolak';
+            if (addressSub) addressSub.textContent = 'Aktifkan izin lokasi di pengaturan browser Anda.';
             break;
         case error.POSITION_UNAVAILABLE:
             msg = 'Sinyal GPS / Posisi tidak tersedia.';
@@ -262,8 +276,8 @@ function updateMapLocation(lat, lng, accuracy) {
 
 // Reverse Geocoding & Emit Data to Socket Server
 async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
-    addressMain.textContent = "Mengambil data alamat...";
-    addressSub.textContent = "Menghubungkan ke layanan peta...";
+    if (addressMain) addressMain.textContent = "Mengambil data alamat...";
+    if (addressSub) addressSub.textContent = "Menghubungkan ke layanan peta...";
 
     let mainAddr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     let subAddr = "Lokasi terdeteksi";
@@ -290,24 +304,26 @@ async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
         console.warn("Reverse Geocoding error:", err);
     }
 
-    addressMain.textContent = mainAddr;
-    addressSub.textContent = subAddr;
+    if (addressMain) addressMain.textContent = mainAddr;
+    if (addressSub) addressSub.textContent = subAddr;
 
-    // Send location to server via Socket.io for tracking
-    socket.emit('send-location', {
-        lat: lat,
-        lng: lng,
-        accuracy: accuracy,
-        address: mainAddr,
-        subAddress: subAddr,
-        device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop'
-    });
+    // Send location to server via Socket.io if active
+    if (socket && socket.connected) {
+        socket.emit('send-location', {
+            lat: lat,
+            lng: lng,
+            accuracy: accuracy,
+            address: mainAddr,
+            subAddress: subAddr,
+            device: navigator.userAgent.includes('Mobile') ? 'Smartphone' : 'Desktop/Laptop'
+        });
+    }
 }
 
 // Update Status Badge UI
 function updateStatus(type, text) {
-    statusBadge.className = `status-badge ${type}`;
-    statusText.textContent = text;
+    if (statusBadge) statusBadge.className = `status-badge ${type}`;
+    if (statusText) statusText.textContent = text;
 }
 
 // Live Location Tracking Toggle
@@ -315,14 +331,18 @@ function toggleLiveTracking() {
     if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
-        btnLiveTrack.classList.remove('tracking-active');
-        btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite"></i> Broadcast GPS: OFF`;
-        showToast("Broadcast GPS Matikan");
+        if (btnLiveTrack) {
+            btnLiveTrack.classList.remove('tracking-active');
+            btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite"></i> Broadcast GPS: OFF`;
+        }
+        showToast("Broadcast GPS Dimatikan");
     } else {
         if (!navigator.geolocation) return;
 
-        btnLiveTrack.classList.add('tracking-active');
-        btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite-dish fa-spin"></i> Broadcast GPS: ON`;
+        if (btnLiveTrack) {
+            btnLiveTrack.classList.add('tracking-active');
+            btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite-dish fa-spin"></i> Broadcast GPS: ON`;
+        }
         showToast("Broadcast Real-time GPS Aktif");
 
         watchId = navigator.geolocation.watchPosition(
@@ -344,7 +364,7 @@ function copyLocationData() {
         `Latitude: ${currentCoords.latitude}\n` +
         `Longitude: ${currentCoords.longitude}\n` +
         `Akurasi: ±${Math.round(currentCoords.accuracy)} meter\n` +
-        `Alamat: ${addressMain.textContent} (${addressSub.textContent})\n` +
+        `Alamat: ${addressMain ? addressMain.textContent : ''} (${addressSub ? addressSub.textContent : ''})\n` +
         `Google Maps: https://www.google.com/maps?q=${currentCoords.latitude},${currentCoords.longitude}`;
 
     navigator.clipboard.writeText(textToCopy).then(() => {
@@ -397,13 +417,14 @@ function toggleMapLayer() {
 
 // Toast Helper
 function showToast(message, isError = false) {
+    if (!toast || !toastMessage) return;
     toastMessage.textContent = message;
     const icon = toast.querySelector('.toast-icon');
     if (isError) {
-        icon.className = 'fa-solid fa-circle-exclamation toast-icon';
+        if (icon) icon.className = 'fa-solid fa-circle-exclamation toast-icon';
         toast.style.borderColor = 'var(--danger)';
     } else {
-        icon.className = 'fa-solid fa-circle-check toast-icon';
+        if (icon) icon.className = 'fa-solid fa-circle-check toast-icon';
         toast.style.borderColor = 'var(--success)';
     }
 
@@ -421,10 +442,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start auto live tracking watch by default
     toggleLiveTracking();
 
-    btnRecenter.addEventListener('click', fetchAccurateLocation);
-    btnLiveTrack.addEventListener('click', toggleLiveTracking);
-    btnCopy.addEventListener('click', copyLocationData);
-    btnGmaps.addEventListener('click', openGoogleMaps);
-    btnShare.addEventListener('click', shareLocation);
-    toggleLayerBtn.addEventListener('click', toggleMapLayer);
+    if (btnRecenter) btnRecenter.addEventListener('click', fetchAccurateLocation);
+    if (btnLiveTrack) btnLiveTrack.addEventListener('click', toggleLiveTracking);
+    if (btnCopy) btnCopy.addEventListener('click', copyLocationData);
+    if (btnGmaps) btnGmaps.addEventListener('click', openGoogleMaps);
+    if (btnShare) btnShare.addEventListener('click', shareLocation);
+    if (toggleLayerBtn) toggleLayerBtn.addEventListener('click', toggleMapLayer);
 });
