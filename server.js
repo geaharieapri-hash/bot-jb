@@ -15,6 +15,11 @@ const io = new Server(server, {
 // Serve Static Files
 app.use(express.static(path.join(__dirname)));
 
+// Explicit Root Route for Vercel
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // Store Active Users Location Data
 const activeUsers = {};
 
@@ -55,3 +60,5 @@ server.listen(PORT, () => {
     console.log(`👉 http://localhost:${PORT}`);
     console.log(`====================================================`);
 });
+
+module.exports = app;
